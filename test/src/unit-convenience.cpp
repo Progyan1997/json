@@ -1,7 +1,7 @@
 /*
     __ _____ _____ _____
  __|  |   __|     |   | |  JSON for Modern C++ (test suite)
-|  |  |__   |  |  | | | |  version 2.1.1
+|  |  |__   |  |  | | | |  version 3.0.0
 |_____|_____|_____|_|___|  https://github.com/nlohmann/json
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
@@ -32,32 +32,32 @@ SOFTWARE.
 #include "json.hpp"
 using nlohmann::json;
 
+void check_escaped(const char* original, const char* escaped = "", const bool ensure_ascii = false);
+void check_escaped(const char* original, const char* escaped, const bool ensure_ascii)
+{
+    std::stringstream ss;
+    json::serializer s(nlohmann::detail::output_adapter<char>(ss), ' ');
+    s.dump_escaped(original, ensure_ascii);
+    CHECK(ss.str() == escaped);
+}
+
 TEST_CASE("convenience functions")
 {
     SECTION("type name as string")
     {
-        CHECK(json(json::value_t::null).type_name() == "null");
-        CHECK(json(json::value_t::object).type_name() == "object");
-        CHECK(json(json::value_t::array).type_name() == "array");
-        CHECK(json(json::value_t::number_integer).type_name() == "number");
-        CHECK(json(json::value_t::number_unsigned).type_name() == "number");
-        CHECK(json(json::value_t::number_float).type_name() == "number");
-        CHECK(json(json::value_t::boolean).type_name() == "boolean");
-        CHECK(json(json::value_t::string).type_name() == "string");
-        CHECK(json(json::value_t::discarded).type_name() == "discarded");
+        CHECK(std::string(json(json::value_t::null).type_name()) == "null");
+        CHECK(std::string(json(json::value_t::object).type_name()) == "object");
+        CHECK(std::string(json(json::value_t::array).type_name()) == "array");
+        CHECK(std::string(json(json::value_t::number_integer).type_name()) == "number");
+        CHECK(std::string(json(json::value_t::number_unsigned).type_name()) == "number");
+        CHECK(std::string(json(json::value_t::number_float).type_name()) == "number");
+        CHECK(std::string(json(json::value_t::boolean).type_name()) == "boolean");
+        CHECK(std::string(json(json::value_t::string).type_name()) == "string");
+        CHECK(std::string(json(json::value_t::discarded).type_name()) == "discarded");
     }
 
     SECTION("string escape")
     {
-        const auto check_escaped = [](const char* original,
-                                      const char* escaped)
-        {
-            std::stringstream ss;
-            json::serializer s(ss);
-            s.dump_escaped(original);
-            CHECK(ss.str() == escaped);
-        };
-
         check_escaped("\"", "\\\"");
         check_escaped("\\", "\\\\");
         check_escaped("\b", "\\b");
@@ -97,5 +97,14 @@ TEST_CASE("convenience functions")
         check_escaped("\x1d", "\\u001d");
         check_escaped("\x1e", "\\u001e");
         check_escaped("\x1f", "\\u001f");
+
+        // invalid UTF-8 characters
+        CHECK_THROWS_AS(check_escaped("ä\xA9ü"), json::type_error);
+        CHECK_THROWS_WITH(check_escaped("ä\xA9ü"),
+                          "[json.exception.type_error.316] invalid UTF-8 byte at index 2: 0xA9");
+
+        CHECK_THROWS_AS(check_escaped("\xC2"), json::type_error);
+        CHECK_THROWS_WITH(check_escaped("\xC2"),
+                          "[json.exception.type_error.316] incomplete UTF-8 string; last byte: 0xC2");
     }
 }

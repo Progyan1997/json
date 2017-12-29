@@ -1,7 +1,7 @@
 /*
     __ _____ _____ _____
  __|  |   __|     |   | |  JSON for Modern C++ (test suite)
-|  |  |__   |  |  | | | |  version 2.1.1
+|  |  |__   |  |  | | | |  version 3.0.0
 |_____|_____|_____|_|___|  https://github.com/nlohmann/json
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
@@ -28,7 +28,6 @@ SOFTWARE.
 
 #include "catch.hpp"
 
-#define private public
 #include "json.hpp"
 using nlohmann::json;
 
@@ -728,19 +727,97 @@ TEST_CASE("CBOR")
                     const auto result = json::to_cbor(j);
                     CHECK(result == expected);
 
-                    // restore value (reverse array for endianess)
-                    double restored;
-                    std::reverse(expected.begin(), expected.end());
-                    memcpy(&restored, expected.data(), sizeof(double));
-                    CHECK(restored == v);
-
                     // roundtrip
                     CHECK(json::from_cbor(result) == j);
+                    CHECK(json::from_cbor(result) == v);
                 }
             }
 
             SECTION("half-precision float (edge cases)")
             {
+                SECTION("errors")
+                {
+                    SECTION("no byte follows")
+                    {
+                        CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0xf9})), json::parse_error&);
+                        CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0xf9})),
+                                          "[json.exception.parse_error.110] parse error at 2: unexpected end of input");
+                    }
+                    SECTION("only one byte follows")
+                    {
+                        CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0xf9, 0x7c})), json::parse_error&);
+                        CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0xf9, 0x7c})),
+                                          "[json.exception.parse_error.110] parse error at 3: unexpected end of input");
+                    }
+                }
+
+                SECTION("exp = 0b00000")
+                {
+                    SECTION("0 (0 00000 0000000000)")
+                    {
+                        json j = json::from_cbor(std::vector<uint8_t>({0xf9, 0x00, 0x00}));
+                        json::number_float_t d = j;
+                        CHECK(d == 0.0);
+                    }
+
+                    SECTION("-0 (1 00000 0000000000)")
+                    {
+                        json j = json::from_cbor(std::vector<uint8_t>({0xf9, 0x80, 0x00}));
+                        json::number_float_t d = j;
+                        CHECK(d == -0.0);
+                    }
+
+                    SECTION("2**-24 (0 00000 0000000001)")
+                    {
+                        json j = json::from_cbor(std::vector<uint8_t>({0xf9, 0x00, 0x01}));
+                        json::number_float_t d = j;
+                        CHECK(d == std::pow(2.0, -24.0));
+                    }
+                }
+
+                SECTION("exp = 0b11111")
+                {
+                    SECTION("infinity (0 11111 0000000000)")
+                    {
+                        json j = json::from_cbor(std::vector<uint8_t>({0xf9, 0x7c, 0x00}));
+                        json::number_float_t d = j;
+                        CHECK(d == std::numeric_limits<json::number_float_t>::infinity());
+                        CHECK(j.dump() == "null");
+                    }
+
+                    SECTION("-infinity (1 11111 0000000000)")
+                    {
+                        json j = json::from_cbor(std::vector<uint8_t>({0xf9, 0xfc, 0x00}));
+                        json::number_float_t d = j;
+                        CHECK(d == -std::numeric_limits<json::number_float_t>::infinity());
+                        CHECK(j.dump() == "null");
+                    }
+                }
+
+                SECTION("other values from https://en.wikipedia.org/wiki/Half-precision_floating-point_format")
+                {
+                    SECTION("1 (0 01111 0000000000)")
+                    {
+                        json j = json::from_cbor(std::vector<uint8_t>({0xf9, 0x3c, 0x00}));
+                        json::number_float_t d = j;
+                        CHECK(d == 1);
+                    }
+
+                    SECTION("-2 (1 10000 0000000000)")
+                    {
+                        json j = json::from_cbor(std::vector<uint8_t>({0xf9, 0xc0, 0x00}));
+                        json::number_float_t d = j;
+                        CHECK(d == -2);
+                    }
+
+                    SECTION("65504 (0 11110 1111111111)")
+                    {
+                        json j = json::from_cbor(std::vector<uint8_t>({0xf9, 0x7b, 0xff}));
+                        json::number_float_t d = j;
+                        CHECK(d == 65504);
+                    }
+                }
+
                 SECTION("infinity")
                 {
                     json j = json::from_cbor(std::vector<uint8_t>({0xf9, 0x7c, 0x00}));
@@ -1147,66 +1224,73 @@ TEST_CASE("CBOR")
 
     SECTION("errors")
     {
+        SECTION("empty byte vector")
+        {
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>()), json::parse_error&);
+            CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>()),
+                              "[json.exception.parse_error.110] parse error at 1: unexpected end of input");
+        }
+
         SECTION("too short byte vector")
         {
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x18})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x19})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x19, 0x00})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1a})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1a, 0x00})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1a, 0x00, 0x00})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1a, 0x00, 0x00, 0x00})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00, 0x00})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})), json::parse_error);
-            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})), json::parse_error);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x18})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x19})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x19, 0x00})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1a})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1a, 0x00})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1a, 0x00, 0x00})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1a, 0x00, 0x00, 0x00})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00, 0x00})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})), json::parse_error&);
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})), json::parse_error&);
 
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x18})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 1 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 2: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x19})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 2 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 2: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x19, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 2 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 3: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1a})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 4 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 2: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1a, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 4 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 3: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1a, 0x00, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 4 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 4: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1a, 0x00, 0x00, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 4 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 5: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1b})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 8 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 2: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 8 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 3: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 8 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 4: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 8 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 5: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 8 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 6: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 8 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 7: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 8 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 8: unexpected end of input");
             CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})),
-                              "[json.exception.parse_error.110] parse error at 2: cannot read 8 bytes from vector");
+                              "[json.exception.parse_error.110] parse error at 9: unexpected end of input");
         }
 
         SECTION("unsupported bytes")
         {
             SECTION("concrete examples")
             {
-                CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1c})), json::parse_error);
+                CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0x1c})), json::parse_error&);
                 CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0x1c})),
-                                  "[json.exception.parse_error.112] parse error at 1: error reading CBOR; last byte: 0x1c");
-                CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0xf8})), json::parse_error);
+                                  "[json.exception.parse_error.112] parse error at 1: error reading CBOR; last byte: 0x1C");
+                CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0xf8})), json::parse_error&);
                 CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0xf8})),
-                                  "[json.exception.parse_error.112] parse error at 1: error reading CBOR; last byte: 0xf8");
+                                  "[json.exception.parse_error.112] parse error at 1: error reading CBOR; last byte: 0xF8");
             }
 
             SECTION("all unsupported bytes")
@@ -1255,8 +1339,32 @@ TEST_CASE("CBOR")
                             0xf8
                         })
                 {
-                    CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({static_cast<uint8_t>(byte)})), json::parse_error);
+                    CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({static_cast<uint8_t>(byte)})), json::parse_error&);
                 }
+            }
+        }
+
+        SECTION("invalid string in map")
+        {
+            CHECK_THROWS_AS(json::from_cbor(std::vector<uint8_t>({0xa1, 0xff, 0x01})), json::parse_error&);
+            CHECK_THROWS_WITH(json::from_cbor(std::vector<uint8_t>({0xa1, 0xff, 0x01})),
+                              "[json.exception.parse_error.113] parse error at 2: expected a CBOR string; last byte: 0xFF");
+        }
+
+        SECTION("strict mode")
+        {
+            std::vector<uint8_t> vec = {0xf6, 0xf6};
+            SECTION("non-strict mode")
+            {
+                const auto result = json::from_cbor(vec, false);
+                CHECK(result == json());
+            }
+
+            SECTION("strict mode")
+            {
+                CHECK_THROWS_AS(json::from_cbor(vec), json::parse_error&);
+                CHECK_THROWS_WITH(json::from_cbor(vec),
+                                  "[json.exception.parse_error.110] parse error at 2: expected end of input");
             }
         }
     }
@@ -1283,9 +1391,28 @@ TEST_CASE("single CBOR roundtrip")
         // compare parsed JSON values
         CHECK(j1 == j2);
 
+        SECTION("roundtrips")
+        {
+            SECTION("std::ostringstream")
+            {
+                std::ostringstream ss;
+                json::to_cbor(j1, ss);
+                json j3 = json::from_cbor(ss.str());
+                CHECK(j1 == j3);
+            }
+
+            SECTION("std::string")
+            {
+                std::string s;
+                json::to_cbor(j1, s);
+                json j3 = json::from_cbor(s);
+                CHECK(j1 == j3);
+            }
+        }
+
         // check with different start index
         packed.insert(packed.begin(), 5, 0xff);
-        CHECK(j1 == json::from_cbor(packed, 5));
+        CHECK(j1 == json::from_cbor(packed.begin() + 5, packed.end()));
     }
 }
 
@@ -1356,12 +1483,6 @@ TEST_CASE("CBOR regressions", "[!throws]")
                 // parse errors are ok, because input may be random bytes
             }
         }
-    }
-
-    SECTION("improve code coverage")
-    {
-        // exotic edge case
-        CHECK_THROWS_AS(json::check_length(0xffffffffffffffffull, 0xfffffffffffffff0ull, 0xff), json::parse_error);
     }
 }
 
@@ -1524,16 +1645,60 @@ TEST_CASE("CBOR roundtrips", "[hide]")
             std::ifstream f_json(filename);
             json j1 = json::parse(f_json);
 
-            // parse CBOR file
-            std::ifstream f_cbor(filename + ".cbor", std::ios::binary);
-            std::vector<uint8_t> packed(
-                (std::istreambuf_iterator<char>(f_cbor)),
-                std::istreambuf_iterator<char>());
-            json j2;
-            CHECK_NOTHROW(j2 = json::from_cbor(packed));
+            SECTION("std::vector<uint8_t>")
+            {
+                // parse CBOR file
+                std::ifstream f_cbor(filename + ".cbor", std::ios::binary);
+                std::vector<uint8_t> packed(
+                    (std::istreambuf_iterator<char>(f_cbor)),
+                    std::istreambuf_iterator<char>());
+                json j2;
+                CHECK_NOTHROW(j2 = json::from_cbor(packed));
 
-            // compare parsed JSON values
-            CHECK(j1 == j2);
+                // compare parsed JSON values
+                CHECK(j1 == j2);
+            }
+
+            SECTION("std::ifstream")
+            {
+                // parse CBOR file
+                std::ifstream f_cbor(filename + ".cbor", std::ios::binary);
+                json j2;
+                CHECK_NOTHROW(j2 = json::from_cbor(f_cbor));
+
+                // compare parsed JSON values
+                CHECK(j1 == j2);
+            }
+
+            SECTION("uint8_t* and size")
+            {
+                // parse CBOR file
+                std::ifstream f_cbor(filename + ".cbor", std::ios::binary);
+                std::vector<uint8_t> packed(
+                    (std::istreambuf_iterator<char>(f_cbor)),
+                    std::istreambuf_iterator<char>());
+                json j2;
+                CHECK_NOTHROW(j2 = json::from_cbor({packed.data(), packed.size()}));
+
+                // compare parsed JSON values
+                CHECK(j1 == j2);
+            }
+
+            SECTION("output to output adapters")
+            {
+                // parse CBOR file
+                std::ifstream f_cbor(filename + ".cbor", std::ios::binary);
+                std::vector<uint8_t> packed(
+                    (std::istreambuf_iterator<char>(f_cbor)),
+                    std::istreambuf_iterator<char>());
+
+                SECTION("std::vector<uint8_t>")
+                {
+                    std::vector<uint8_t> vec;
+                    json::to_cbor(j1, vec);
+                    CHECK(vec == packed);
+                }
+            }
         }
     }
 }
@@ -1596,7 +1761,7 @@ TEST_CASE("all first bytes", "[!throws]")
 
         try
         {
-            json::from_cbor({byte});
+            json::from_cbor(std::vector<uint8_t>(1, byte));
         }
         catch (const json::parse_error& e)
         {
@@ -1756,7 +1921,7 @@ TEST_CASE("examples from RFC 7049 Appendix A")
         CHECK(json::parse("\"\\ud800\\udd51\"") == json::from_cbor(std::vector<uint8_t>({0x64, 0xf0, 0x90, 0x85, 0x91})));
 
         // indefinite length strings
-        CHECK(json::parse("\"streaming\"") == json::from_cbor(std::vector<uint8_t>({0x7f, 0x65, 0x73, 0x74, 0x72, 0x65, 0x61, 0x64, 0x6d, 0x69, 0x6e, 0x67, 0xff})));
+        CHECK(json::parse("\"streaming\"") == json::from_cbor(std::vector<uint8_t>({0x7f, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x69, 0x6e, 0x67, 0xff})));
     }
 
     SECTION("arrays")

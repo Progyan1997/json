@@ -1,7 +1,7 @@
 /*
     __ _____ _____ _____
  __|  |   __|     |   | |  JSON for Modern C++ (test suite)
-|  |  |__   |  |  | | | |  version 2.1.1
+|  |  |__   |  |  | | | |  version 3.0.0
 |_____|_____|_____|_|___|  https://github.com/nlohmann/json
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
@@ -77,9 +77,27 @@ TEST_CASE("compliance tests from json.org")
                 })
         {
             CAPTURE(filename);
-            json j;
             std::ifstream f(filename);
-            CHECK_THROWS_AS(f >> j, json::parse_error);
+            CHECK_THROWS_AS(json::parse(f), json::parse_error&);
+        }
+    }
+
+    SECTION("no failures with trailing literals (relaxed)")
+    {
+        // these tests fail above, because the parser does not end on EOF;
+        // they succeed when the operator>> is used, because it does not
+        // have this constraint
+        for (auto filename :
+                {
+                    "test/data/json_tests/fail7.json",
+                    "test/data/json_tests/fail8.json",
+                    "test/data/json_tests/fail10.json",
+                })
+        {
+            CAPTURE(filename);
+            std::ifstream f(filename);
+            json j;
+            CHECK_NOTHROW(f >> j);
         }
     }
 
@@ -93,8 +111,8 @@ TEST_CASE("compliance tests from json.org")
                 })
         {
             CAPTURE(filename);
-            json j;
             std::ifstream f(filename);
+            json j;
             CHECK_NOTHROW(f >> j);
         }
     }
@@ -305,6 +323,7 @@ TEST_CASE("compliance tests from nativejson-benchmark")
             std::string json_string( (std::istreambuf_iterator<char>(f) ),
                                      (std::istreambuf_iterator<char>()) );
 
+            CAPTURE(json_string);
             json j = json::parse(json_string);
             CHECK(j.dump() == json_string);
         }
@@ -753,8 +772,40 @@ TEST_CASE("nst's JSONTestSuite")
             {
                 CAPTURE(filename);
                 std::ifstream f(filename);
+                CHECK_THROWS_AS(json::parse(f), json::parse_error&);
+            }
+        }
+
+        SECTION("n -> y (relaxed)")
+        {
+            // these tests fail above, because the parser does not end on EOF;
+            // they succeed when the operator>> is used, because it does not
+            // have this constraint
+            for (auto filename :
+                    {
+                        "test/data/nst_json_testsuite/test_parsing/n_array_comma_after_close.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_array_extra_close.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_object_trailing_comment.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_object_trailing_comment_open.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_object_trailing_comment_slash_open.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_object_trailing_comment_slash_open_incomplete.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_object_with_trailing_garbage.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_string_with_trailing_garbage.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_structure_array_trailing_garbage.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_structure_array_with_extra_array_close.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_structure_close_unopened_array.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_structure_double_array.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_structure_number_with_trailing_garbage.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_structure_object_followed_by_closing_object.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_structure_object_with_trailing_garbage.json",
+                        "test/data/nst_json_testsuite/test_parsing/n_structure_trailing_#.json"
+                    }
+                )
+            {
+                CAPTURE(filename);
+                std::ifstream f(filename);
                 json j;
-                CHECK_THROWS_AS(f >> j, json::parse_error);
+                CHECK_NOTHROW(f >> j);
             }
         }
 
@@ -797,7 +848,7 @@ TEST_CASE("nst's JSONTestSuite")
                 CAPTURE(filename);
                 std::ifstream f(filename);
                 json j;
-                CHECK_THROWS_AS(f >> j, json::out_of_range);
+                CHECK_THROWS_AS(f >> j, json::out_of_range&);
             }
         }
 
@@ -824,7 +875,7 @@ TEST_CASE("nst's JSONTestSuite")
                 CAPTURE(filename);
                 std::ifstream f(filename);
                 json j;
-                CHECK_THROWS_AS(f >> j, json::parse_error);
+                CHECK_THROWS_AS(f >> j, json::parse_error&);
             }
         }
     }

@@ -1,4 +1,5 @@
-#include <json.hpp>
+#include <iostream>
+#include "json.hpp"
 
 using json = nlohmann::json;
 
@@ -72,6 +73,17 @@ int main()
     {
         // try to use the array index '-'
         json::reference ref = j.at("/array/-"_json_pointer);
+    }
+    catch (json::out_of_range& e)
+    {
+        std::cout << e.what() << '\n';
+    }
+
+    // out_of_range.403
+    try
+    {
+        // try to use a JSON pointer to an nonexistent object key
+        json::const_reference ref = j.at("/foo"_json_pointer);
     }
     catch (json::out_of_range& e)
     {

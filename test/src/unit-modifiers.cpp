@@ -1,7 +1,7 @@
 /*
     __ _____ _____ _____
  __|  |   __|     |   | |  JSON for Modern C++ (test suite)
-|  |  |__   |  |  | | | |  version 2.1.1
+|  |  |__   |  |  | | | |  version 3.0.0
 |_____|_____|_____|_|___|  https://github.com/nlohmann/json
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
@@ -38,17 +38,21 @@ TEST_CASE("modifiers")
         SECTION("boolean")
         {
             json j = true;
+            json k = j;
 
             j.clear();
             CHECK(j == json(json::value_t::boolean));
+            CHECK(j == json(k.type()));
         }
 
         SECTION("string")
         {
             json j = "hello world";
+            json k = j;
 
             j.clear();
             CHECK(j == json(json::value_t::string));
+            CHECK(j == json(k.type()));
         }
 
         SECTION("array")
@@ -56,19 +60,23 @@ TEST_CASE("modifiers")
             SECTION("empty array")
             {
                 json j = json::array();
+                json k = j;
 
                 j.clear();
                 CHECK(j.empty());
                 CHECK(j == json(json::value_t::array));
+                CHECK(j == json(k.type()));
             }
 
             SECTION("filled array")
             {
                 json j = {1, 2, 3};
+                json k = j;
 
                 j.clear();
                 CHECK(j.empty());
                 CHECK(j == json(json::value_t::array));
+                CHECK(j == json(k.type()));
             }
         }
 
@@ -77,52 +85,64 @@ TEST_CASE("modifiers")
             SECTION("empty object")
             {
                 json j = json::object();
+                json k = j;
 
                 j.clear();
                 CHECK(j.empty());
                 CHECK(j == json(json::value_t::object));
+                CHECK(j == json(k.type()));
             }
 
             SECTION("filled object")
             {
                 json j = {{"one", 1}, {"two", 2}, {"three", 3}};
+                json k = j;
 
                 j.clear();
                 CHECK(j.empty());
                 CHECK(j == json(json::value_t::object));
+                CHECK(j == json(k.type()));
             }
         }
 
         SECTION("number (integer)")
         {
             json j = 23;
+            json k = j;
 
             j.clear();
             CHECK(j == json(json::value_t::number_integer));
+            CHECK(j == json(k.type()));
         }
 
         SECTION("number (unsigned)")
         {
             json j = 23u;
+            json k = j;
 
             j.clear();
             CHECK(j == json(json::value_t::number_integer));
+            CHECK(j == json(k.type()));
         }
 
         SECTION("number (float)")
         {
             json j = 23.42;
+            json k = j;
 
             j.clear();
             CHECK(j == json(json::value_t::number_float));
+            CHECK(j == json(k.type()));
         }
 
         SECTION("null")
         {
             json j = nullptr;
+            json k = j;
 
             j.clear();
             CHECK(j == json(json::value_t::null));
+            CHECK(j == json(k.type()));
         }
     }
 
@@ -152,7 +172,7 @@ TEST_CASE("modifiers")
                 SECTION("other type")
                 {
                     json j = 1;
-                    CHECK_THROWS_AS(j.push_back("Hello"), json::type_error);
+                    CHECK_THROWS_AS(j.push_back("Hello"), json::type_error&);
                     CHECK_THROWS_WITH(j.push_back("Hello"), "[json.exception.type_error.308] cannot use push_back() with number");
                 }
             }
@@ -182,7 +202,7 @@ TEST_CASE("modifiers")
                 {
                     json j = 1;
                     json k("Hello");
-                    CHECK_THROWS_AS(j.push_back(k), json::type_error);
+                    CHECK_THROWS_AS(j.push_back(k), json::type_error&);
                     CHECK_THROWS_WITH(j.push_back(k), "[json.exception.type_error.308] cannot use push_back() with number");
                 }
             }
@@ -215,7 +235,7 @@ TEST_CASE("modifiers")
             {
                 json j = 1;
                 json k("Hello");
-                CHECK_THROWS_AS(j.push_back(json::object_t::value_type({"one", 1})), json::type_error);
+                CHECK_THROWS_AS(j.push_back(json::object_t::value_type({"one", 1})), json::type_error&);
                 CHECK_THROWS_WITH(j.push_back(json::object_t::value_type({"one", 1})),
                                   "[json.exception.type_error.308] cannot use push_back() with number");
             }
@@ -251,9 +271,13 @@ TEST_CASE("modifiers")
                 j.push_back({"key2", "bar"});
                 CHECK(j == json({{"key1", 1}, {"key2", "bar"}}));
 
-                json k = {{"key1", 1}};
-                CHECK_THROWS_AS(k.push_back({1, 2, 3, 4}), json::type_error);
-                CHECK_THROWS_WITH(k.push_back({1, 2, 3, 4}), "[json.exception.type_error.308] cannot use push_back() with object");
+                // invalid values (no string/val pair)
+                CHECK_THROWS_AS(j.push_back({1}), json::type_error&);
+                CHECK_THROWS_WITH(j.push_back({1}), "[json.exception.type_error.308] cannot use push_back() with object");
+                CHECK_THROWS_AS(j.push_back({1, 2}), json::type_error&);
+                CHECK_THROWS_WITH(j.push_back({1, 2}), "[json.exception.type_error.308] cannot use push_back() with object");
+                CHECK_THROWS_AS(j.push_back({1, 2, 3, 4}), json::type_error&);
+                CHECK_THROWS_WITH(j.push_back({1, 2, 3, 4}), "[json.exception.type_error.308] cannot use push_back() with object");
             }
         }
     }
@@ -291,7 +315,7 @@ TEST_CASE("modifiers")
         SECTION("other type")
         {
             json j = 1;
-            CHECK_THROWS_AS(j.emplace_back("Hello"), json::type_error);
+            CHECK_THROWS_AS(j.emplace_back("Hello"), json::type_error&);
             CHECK_THROWS_WITH(j.emplace_back("Hello"),
                               "[json.exception.type_error.311] cannot use emplace_back() with number");
         }
@@ -351,7 +375,7 @@ TEST_CASE("modifiers")
         SECTION("other type")
         {
             json j = 1;
-            CHECK_THROWS_AS(j.emplace("foo", "bar"), json::type_error);
+            CHECK_THROWS_AS(j.emplace("foo", "bar"), json::type_error&);
             CHECK_THROWS_WITH(j.emplace("foo", "bar"),
                               "[json.exception.type_error.311] cannot use emplace() with number");
         }
@@ -383,7 +407,7 @@ TEST_CASE("modifiers")
                 SECTION("other type")
                 {
                     json j = 1;
-                    CHECK_THROWS_AS(j += "Hello", json::type_error);
+                    CHECK_THROWS_AS(j += "Hello", json::type_error&);
                     CHECK_THROWS_WITH(j += "Hello", "[json.exception.type_error.308] cannot use push_back() with number");
                 }
             }
@@ -413,7 +437,7 @@ TEST_CASE("modifiers")
                 {
                     json j = 1;
                     json k("Hello");
-                    CHECK_THROWS_AS(j += k, json::type_error);
+                    CHECK_THROWS_AS(j += k, json::type_error&);
                     CHECK_THROWS_WITH(j += k, "[json.exception.type_error.308] cannot use push_back() with number");
                 }
             }
@@ -446,7 +470,7 @@ TEST_CASE("modifiers")
             {
                 json j = 1;
                 json k("Hello");
-                CHECK_THROWS_AS(j += json::object_t::value_type({"one", 1}), json::type_error);
+                CHECK_THROWS_AS(j += json::object_t::value_type({"one", 1}), json::type_error&);
                 CHECK_THROWS_WITH(j += json::object_t::value_type({"one", 1}),
                                   "[json.exception.type_error.308] cannot use push_back() with number");
             }
@@ -483,13 +507,13 @@ TEST_CASE("modifiers")
                 CHECK(j == json({{"key1", 1}, {"key2", "bar"}}));
 
                 json k = {{"key1", 1}};
-                CHECK_THROWS_AS((k += {1, 2, 3, 4}), json::type_error);
+                CHECK_THROWS_AS((k += {1, 2, 3, 4}), json::type_error&);
                 CHECK_THROWS_WITH((k += {1, 2, 3, 4}), "[json.exception.type_error.308] cannot use push_back() with object");
             }
         }
     }
 
-    SECTION("insert")
+    SECTION("insert()")
     {
         json j_array = {1, 2, 3, 4};
         json j_value = 5;
@@ -594,7 +618,7 @@ TEST_CASE("modifiers")
             }
         }
 
-        SECTION("range")
+        SECTION("range for array")
         {
             json j_other_array = {"first", "second"};
 
@@ -620,14 +644,48 @@ TEST_CASE("modifiers")
                 json j_other_array2 = {"first", "second"};
 
                 CHECK_THROWS_AS(j_array.insert(j_array.end(), j_array.begin(), j_array.end()),
-                                json::invalid_iterator);
+                                json::invalid_iterator&);
                 CHECK_THROWS_AS(j_array.insert(j_array.end(), j_other_array.begin(), j_other_array2.end()),
-                                json::invalid_iterator);
+                                json::invalid_iterator&);
 
                 CHECK_THROWS_WITH(j_array.insert(j_array.end(), j_array.begin(), j_array.end()),
                                   "[json.exception.invalid_iterator.211] passed iterators may not belong to container");
                 CHECK_THROWS_WITH(j_array.insert(j_array.end(), j_other_array.begin(), j_other_array2.end()),
                                   "[json.exception.invalid_iterator.210] iterators do not fit");
+            }
+        }
+
+        SECTION("range for object")
+        {
+            json j_object1 = {{"one", "eins"}, {"two", "zwei"}};
+            json j_object2 = {{"eleven", "elf"}, {"seventeen", "siebzehn"}};
+
+            SECTION("proper usage")
+            {
+                j_object1.insert(j_object2.begin(), j_object2.end());
+                CHECK(j_object1.size() == 4);
+            }
+
+            SECTION("empty range")
+            {
+                j_object1.insert(j_object2.begin(), j_object2.begin());
+                CHECK(j_object1.size() == 2);
+            }
+
+            SECTION("invalid iterators")
+            {
+                json j_other_array2 = {"first", "second"};
+
+                CHECK_THROWS_AS(j_array.insert(j_object2.begin(), j_object2.end()), json::type_error&);
+                CHECK_THROWS_AS(j_object1.insert(j_object1.begin(), j_object2.end()), json::invalid_iterator&);
+                CHECK_THROWS_AS(j_object1.insert(j_array.begin(), j_array.end()), json::invalid_iterator&);
+
+                CHECK_THROWS_WITH(j_array.insert(j_object2.begin(), j_object2.end()),
+                                  "[json.exception.type_error.309] cannot use insert() with array");
+                CHECK_THROWS_WITH(j_object1.insert(j_object1.begin(), j_object2.end()),
+                                  "[json.exception.invalid_iterator.210] iterators do not fit");
+                CHECK_THROWS_WITH(j_object1.insert(j_array.begin(), j_array.end()),
+                                  "[json.exception.invalid_iterator.202] iterators first and last must point to objects");
             }
         }
 
@@ -666,11 +724,11 @@ TEST_CASE("modifiers")
             // pass iterator to a different array
             json j_another_array = {1, 2};
             json j_yet_another_array = {"first", "second"};
-            CHECK_THROWS_AS(j_array.insert(j_another_array.end(), 10), json::invalid_iterator);
-            CHECK_THROWS_AS(j_array.insert(j_another_array.end(), j_value), json::invalid_iterator);
-            CHECK_THROWS_AS(j_array.insert(j_another_array.end(), 10, 11), json::invalid_iterator);
-            CHECK_THROWS_AS(j_array.insert(j_another_array.end(), j_yet_another_array.begin(), j_yet_another_array.end()), json::invalid_iterator);
-            CHECK_THROWS_AS(j_array.insert(j_another_array.end(), {1, 2, 3, 4}), json::invalid_iterator);
+            CHECK_THROWS_AS(j_array.insert(j_another_array.end(), 10), json::invalid_iterator&);
+            CHECK_THROWS_AS(j_array.insert(j_another_array.end(), j_value), json::invalid_iterator&);
+            CHECK_THROWS_AS(j_array.insert(j_another_array.end(), 10, 11), json::invalid_iterator&);
+            CHECK_THROWS_AS(j_array.insert(j_another_array.end(), j_yet_another_array.begin(), j_yet_another_array.end()), json::invalid_iterator&);
+            CHECK_THROWS_AS(j_array.insert(j_another_array.end(), {1, 2, 3, 4}), json::invalid_iterator&);
 
             CHECK_THROWS_WITH(j_array.insert(j_another_array.end(), 10),
                               "[json.exception.invalid_iterator.202] iterator does not fit current value");
@@ -689,12 +747,12 @@ TEST_CASE("modifiers")
             // call insert on a non-array type
             json j_nonarray = 3;
             json j_yet_another_array = {"first", "second"};
-            CHECK_THROWS_AS(j_nonarray.insert(j_nonarray.end(), 10), json::type_error);
-            CHECK_THROWS_AS(j_nonarray.insert(j_nonarray.end(), j_value), json::type_error);
-            CHECK_THROWS_AS(j_nonarray.insert(j_nonarray.end(), 10, 11), json::type_error);
+            CHECK_THROWS_AS(j_nonarray.insert(j_nonarray.end(), 10), json::type_error&);
+            CHECK_THROWS_AS(j_nonarray.insert(j_nonarray.end(), j_value), json::type_error&);
+            CHECK_THROWS_AS(j_nonarray.insert(j_nonarray.end(), 10, 11), json::type_error&);
             CHECK_THROWS_AS(j_nonarray.insert(j_nonarray.end(), j_yet_another_array.begin(),
-                                              j_yet_another_array.end()), json::type_error);
-            CHECK_THROWS_AS(j_nonarray.insert(j_nonarray.end(), {1, 2, 3, 4}), json::type_error);
+                                              j_yet_another_array.end()), json::type_error&);
+            CHECK_THROWS_AS(j_nonarray.insert(j_nonarray.end(), {1, 2, 3, 4}), json::type_error&);
 
             CHECK_THROWS_WITH(j_nonarray.insert(j_nonarray.end(), 10), "[json.exception.type_error.309] cannot use insert() with number");
             CHECK_THROWS_WITH(j_nonarray.insert(j_nonarray.end(), j_value), "[json.exception.type_error.309] cannot use insert() with number");
@@ -703,6 +761,70 @@ TEST_CASE("modifiers")
                                                 j_yet_another_array.end()), "[json.exception.type_error.309] cannot use insert() with number");
             CHECK_THROWS_WITH(j_nonarray.insert(j_nonarray.end(), {1, 2, 3, 4}),
                               "[json.exception.type_error.309] cannot use insert() with number");
+        }
+    }
+
+    SECTION("update()")
+    {
+        json j_object1 = {{"one", "eins"}, {"two", "zwei"}};
+        json j_object2 = {{"three", "drei"}, {"two", "zwo"}};
+        json j_array = {1, 2, 3, 4};
+
+        SECTION("const reference")
+        {
+            SECTION("proper usage")
+            {
+                j_object1.update(j_object2);
+                CHECK(j_object1 == json({{"one", "eins"}, {"two", "zwo"}, {"three", "drei"}}));
+
+                json j_null;
+                j_null.update(j_object2);
+                CHECK(j_null == j_object2);
+            }
+
+            SECTION("wrong types")
+            {
+                CHECK_THROWS_AS(j_array.update(j_object1), json::type_error&);
+                CHECK_THROWS_WITH(j_array.update(j_object1), "[json.exception.type_error.312] cannot use update() with array");
+
+                CHECK_THROWS_AS(j_object1.update(j_array), json::type_error&);
+                CHECK_THROWS_WITH(j_object1.update(j_array), "[json.exception.type_error.312] cannot use update() with array");
+            }
+        }
+
+        SECTION("iterator range")
+        {
+            SECTION("proper usage")
+            {
+                j_object1.update(j_object2.begin(), j_object2.end());
+                CHECK(j_object1 == json({{"one", "eins"}, {"two", "zwo"}, {"three", "drei"}}));
+
+                json j_null;
+                j_null.update(j_object2.begin(), j_object2.end());
+                CHECK(j_null == j_object2);
+            }
+
+            SECTION("empty range")
+            {
+                j_object1.update(j_object2.begin(), j_object2.begin());
+                CHECK(j_object1 == json({{"one", "eins"}, {"two", "zwei"}}));
+            }
+
+            SECTION("invalid iterators")
+            {
+                json j_other_array2 = {"first", "second"};
+
+                CHECK_THROWS_AS(j_array.update(j_object2.begin(), j_object2.end()), json::type_error&);
+                CHECK_THROWS_AS(j_object1.update(j_object1.begin(), j_object2.end()), json::invalid_iterator&);
+                CHECK_THROWS_AS(j_object1.update(j_array.begin(), j_array.end()), json::invalid_iterator&);
+
+                CHECK_THROWS_WITH(j_array.update(j_object2.begin(), j_object2.end()),
+                                  "[json.exception.type_error.312] cannot use update() with array");
+                CHECK_THROWS_WITH(j_object1.update(j_object1.begin(), j_object2.end()),
+                                  "[json.exception.invalid_iterator.210] iterators do not fit");
+                CHECK_THROWS_WITH(j_object1.update(j_array.begin(), j_array.end()),
+                                  "[json.exception.invalid_iterator.202] iterators first and last must point to objects");
+            }
         }
     }
 
@@ -754,7 +876,7 @@ TEST_CASE("modifiers")
                 json j = 17;
                 json::array_t a = {"foo", "bar", "baz"};
 
-                CHECK_THROWS_AS(j.swap(a), json::type_error);
+                CHECK_THROWS_AS(j.swap(a), json::type_error&);
                 CHECK_THROWS_WITH(j.swap(a), "[json.exception.type_error.310] cannot use swap() with number");
             }
         }
@@ -780,7 +902,7 @@ TEST_CASE("modifiers")
                 json j = 17;
                 json::object_t o = {{"cow", "Kuh"}, {"chicken", "Huhn"}};
 
-                CHECK_THROWS_AS(j.swap(o), json::type_error);
+                CHECK_THROWS_AS(j.swap(o), json::type_error&);
                 CHECK_THROWS_WITH(j.swap(o), "[json.exception.type_error.310] cannot use swap() with number");
             }
         }
@@ -806,7 +928,7 @@ TEST_CASE("modifiers")
                 json j = 17;
                 json::string_t s = "Hallo Welt";
 
-                CHECK_THROWS_AS(j.swap(s), json::type_error);
+                CHECK_THROWS_AS(j.swap(s), json::type_error&);
                 CHECK_THROWS_WITH(j.swap(s), "[json.exception.type_error.310] cannot use swap() with number");
             }
         }

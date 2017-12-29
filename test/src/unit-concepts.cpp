@@ -1,7 +1,7 @@
 /*
     __ _____ _____ _____
  __|  |   __|     |   | |  JSON for Modern C++ (test suite)
-|  |  |__   |  |  | | | |  version 2.1.1
+|  |  |__   |  |  | | | |  version 3.0.0
 |_____|_____|_____|_|___|  https://github.com/nlohmann/json
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
@@ -94,6 +94,7 @@ TEST_CASE("concepts")
 
         SECTION("MoveConstructible")
         {
+            CHECK(std::is_move_constructible<json>::value);
             CHECK(std::is_nothrow_move_constructible<json>::value);
         }
 
